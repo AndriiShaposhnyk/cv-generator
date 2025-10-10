@@ -1,4 +1,4 @@
-// aiPolish.ts (тимчасовий тестовий варіант)
+
 export async function polishTextWithAI(rawText: string): Promise<string> {
   const url = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-1.5B-Instruct";
   const res = await fetch(url, {
