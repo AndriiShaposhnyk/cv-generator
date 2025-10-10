@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+🧾 CV Generator — React + TypeScript + Node.js
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+CV Generator — застосунок, який створює DOCX-резюме на основі введених користувачем даних.
+Проєкт має бекенд на Node.js + Express (TypeScript), який генерує .docx-файл,
+та опціонально може використовувати LLM-модель (Hugging Face API) для автоматичного “полірування” тексту резюме.
 
-Currently, two official plugins are available:
+⚙️ # Локальний запуск:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1️⃣ Клонувати репозиторій:
+git clone https://github.com/AndriiShaposhnyk/cv-generator.git
+cd cv-generator
 
-## React Compiler
+2️⃣ Встановити залежності:  
+npm install 
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+3️⃣ Створити файл .env у корені проєкту:
+і вставити свій Hugging Face токен у форматі: HF_API_KEY=hf_XXXXXXXXXXXXXXXXXXXXXXXXX
+⚠️ Файл .env не потрібно комітити у GitHub — він уже доданий у .gitignore.
 
-## Expanding the ESLint configuration
+4️⃣ Запустити сервер:
+npm run dev
+# або, якщо потрібно запустити тільки сервер:
+npm run server:dev 
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+🚀 Функціональність
+- Форма для введення особистих даних (ім’я, email, телефон, місто, навички, досвід, опис тощо)
+- Генерація DOCX-файлу з форматованим резюме
+- Опціонально: використання AI (LLM API) для покращення тексту (about yourself, skills)
+- Якщо AI-редагування недоступне, застосовується стандартна логіка — користувач усе одно отримує свій файл
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+🧰 Технології:
+- Frontend: React
+- Backend: Node.js + Express + TypeScript
+- AI integration: Hugging Face Inference API
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+🤖 Модуль AI:
+У проєкті я реалізував модуль aiPolish.ts, який звертається до https://api-inference.huggingface.co/models/Qwen/Qwen2.5-1.5B-Instruct (модель інструкційного типу, яка повинна повертати відредагований текст). 
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+❗️Проблема: 
+Локально кожен запит до API повертає: 
+status: 404
+body: Not Found
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Після численних тестів (axios, fetch, PowerShell, curl) я з’ясував, що запит навіть не доходить до Hugging Face -
+його блокує локальний фаєрвол або провайдер!!!
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+☁️ Вирішення
+При деплої проєкту на Vercel (або інший хмарний бекенд) ця проблема повинна б зникнути, оскільки сервер у хмарі має 
+прямий вихід до Hugging Face API. Тому деплой допоміг би уникнути локальних обмежень. 
+На момент здачі мені трохи не вистачило часу, щоб реалізувати деплой. 
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+🧩 Висновок: 
+- Базова генерація резюме працює стабільно. 
+- AI-частина реалізована, але на локальному середовищі блокуються HTTP-запити до HF. 
+- Після деплою на Vercel API-виклики мають запрацювати повністю. 
+
+🧑‍💻 Автор
+Andrii Shaposhnyk
+andrii.shaposhnyk@gmail.com
