@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { saveAs } from "file-saver";
 import type { ResumeFormData } from "./resume.types";
-import { generateResumeDoc } from "./generateResumeDoc";
-import { safeFileName } from "./textSanitize";
+
+const safeFileName = (raw: string, fallback = "resume") =>
+  (raw || fallback).replace(/[^\w\s\-]+/g, "").trim() || fallback;
 
 const DEFAULT_FORM: ResumeFormData = {
   fullName: "",
@@ -41,8 +41,34 @@ export function useResumeForm(initial?: Partial<ResumeFormData>) {
   const handleGenerate = async () => {
     try {
       setGenerating(true);
-      const blob = await generateResumeDoc(form);
-      saveAs(blob, `${safeFileName(form.fullName)}.docx`);
+
+      const res = await fetch("http://localhost:4000/api/generate-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      if (!res.ok) {
+        let msg = "Validation failed";
+        try {
+        const payload = await res.json();
+        msg = payload?.error || msg;
+      } catch {}
+      alert(msg);
+      return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const filename = `${safeFileName(form.fullName)}.docx`;
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Error generating docx:", err);
       alert("OPS, Error occured!");
