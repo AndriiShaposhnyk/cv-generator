@@ -1,88 +1,80 @@
-// aiPolish.ts
-const MODEL = process.env.HF_MODEL || "google/gemma-2-2b-it";
-const HF_URL = `https://api-inference.huggingface.co/models/${MODEL}`;
+import { HfInference } from "@huggingface/inference";
 
+const MODEL = process.env.HF_MODEL ?? "google/gemma-2-2b-it";
+
+const HF_API_KEY = process.env.HF_API_KEY;
+if (!HF_API_KEY) throw new Error("HF_API_KEY is missing");
+
+const hf = new HfInference(HF_API_KEY);
+
+/**
+ * Полірує текст до CV-стилю англійською, використовуючи Hugging Face ChatCompletion API.
+ * Повертає відредагований текст або прибраний оригінал як fallback.
+ */
 export async function polishTextWithAI(rawText: string): Promise<string> {
-  const key = process.env.HF_API_KEY;
-  if (!key) throw new Error("HF_API_KEY is missing");
-
-  const prompt =
-`### Instruction:
-Rewrite the following text in a professional, concise CV-style English.
-- Keep meaning, fix grammar, improve clarity.
-- Do NOT add new facts.
-- Output ONLY the improved text.
-
-### Input:
-${rawText}
-
-### Output:
-`;
-
-  const res = await fetch(HF_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "User-Agent": "cv-generator/1.0 (+node-fetch)",
-    },
-    body: JSON.stringify({
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 300,
-        temperature: 0.3,
-        top_p: 0.9,
-        repetition_penalty: 1.05,
-        return_full_text: false,
-      },
+  try {
+    const res = await hf.chatCompletion({
+      model: MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an assistant that rewrites user text into professional, concise CV-style English. " +
+            "Keep meaning, fix grammar, improve clarity. Do NOT add new facts. Output ONLY the improved text.",
+        },
+        {
+          role: "user",
+          content: rawText,
+        },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+      top_p: 0.9,
       options: { wait_for_model: true, use_cache: true },
-    }),
-  });
+    });
 
-  const body = await res.text();
-  const xMsg = res.headers.get("X-Error-Message") || "";
-  const xCode = res.headers.get("X-Error-Code") || "";
+    const text = res?.choices?.[0]?.message?.content?.toString().trim() ?? "";
 
-  console.log("[HF] url:", HF_URL);
-  console.log("[HF] model:", MODEL);
-  console.log("[HF] status:", res.status, res.statusText, "| x-code:", xCode, "| x-msg:", xMsg);
-  console.log("[HF] body head:", body.slice(0, 200));
-
-  if (!res.ok) {
-    const reason = xMsg || body.slice(0, 400) || res.statusText;
-
-    if (res.status === 404) {
-      throw new Error(`HF 404: ${reason || "Model not public/unsupported by public Inference API"} (model=${MODEL})`);
+    if (!text || norm(text) === norm(rawText)) {
+      return cleanupFallback(rawText);
     }
-    if (res.status === 401) throw new Error("HF 401: check HF_API_KEY");
-    if (res.status === 403) throw new Error("HF 403: accept model license");
-    if (res.status === 429) throw new Error("HF 429: rate limit");
-    if (res.status === 503) throw new Error("HF 503: model loading, retry");
+    return text;
+  } catch (err: any) {
+    console.error(
+      `[HF chat] model=${MODEL} | name=${err?.name ?? "Error"} | message=${err?.message ?? err} | status=${
+        err?.status ?? "?"
+      }`
+    );
 
-    throw new Error(`HF ${res.status}: ${reason}`);
+    // обробка типових статусів 
+    if (err?.status === 401) throw new Error("HF 401: check HF_API_KEY");
+    if (err?.status === 403)
+      throw new Error("HF 403: accept model license on huggingface.co");
+    if (err?.status === 404)
+      throw new Error(`HF 404: Model not available (model=${MODEL})`);
+    if (err?.status === 429) throw new Error("HF 429: rate limit exceeded");
+    if (err?.status === 503)
+      throw new Error("HF 503: model loading, please retry");
+
+    return cleanupFallback(rawText);
   }
-
-  let data: any;
-  try { data = JSON.parse(body); } catch { data = body; }
-
-  let out =
-    (Array.isArray(data) && (data[0]?.generated_text ?? data[0]?.text)) ||
-    data?.generated_text ||
-    data?.text ||
-    (typeof data === "string" ? data : "");
-
-  out = String(out)
-    .replace(/^###\s*Output:\s*/i, "")
-    .replace(/^###\s*Instruction:.*?###\s*Input:\s*/is, "")
-    .trim();
-
-  if (!out || out.replace(/\s+/g, " ") === rawText.replace(/\s+/g, " ")) {
-    const cleaned = rawText.replace(/\s{2,}/g, " ").replace(/(\.)(\S)/g, "$1 $2").trim();
-    return cleaned;
-  }
-  return out;
 }
+
+// ===== helpers =====
+
+function cleanupFallback(text: string): string {
+  // Прибираємо подвоєні пробіли і додаємо пробіл після крапки
+  return text
+    .replace(/\s{2,}/g, " ")
+    .replace(/(\.)(\S)/g, "$1 $2")
+    .trim();
+}
+
+function norm(s: string): string {
+  return s.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+
 
 
 

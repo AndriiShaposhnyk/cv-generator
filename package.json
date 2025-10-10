@@ -12,6 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@huggingface/inference": "^4.11.1",
     "axios": "^1.12.2",
     "cors": "^2.8.5",
     "docx": "^9.5.1",
